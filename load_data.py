@@ -101,3 +101,71 @@ def prepare_pdf_for_llm(pdf_path, max_chars: int = 12000):
         "final_length": len(truncated),
         "text": truncated,
     }
+
+import re
+
+
+import re
+
+
+def remove_image_captions(text: str) -> str:
+    """
+    Remove image captions, photo descriptions, and media-credit-like lines
+    before sending text to the LLM.
+    """
+
+    if not text:
+        return ""
+
+    lines = text.split("\n")
+    cleaned_lines = []
+
+    caption_keywords = [
+        "photo", "image", "caption", "credit", "getty", "reuters",
+        "afp", "ap", "associated press", "file photo"
+    ]
+
+    scene_verbs = [
+        "shown", "seen", "pictured", "stands", "sits", "walks", "looks",
+        "holds", "rests", "plays", "waits", "shelters", "sleeps"
+    ]
+
+    scene_nouns = [
+        "child", "children", "man", "woman", "people", "family", "families",
+        "building", "street", "shelter", "camp", "tent", "home", "house"
+    ]
+
+    date_prefix_pattern = re.compile(
+        r'^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b',
+        re.IGNORECASE
+    )
+
+    for line in lines:
+        l = line.strip()
+        if not l:
+            continue
+
+        lower = l.lower()
+
+        # 1. Explicit media/caption markers
+        if any(k in lower for k in caption_keywords):
+            continue
+
+        # 2. Date-prefixed visual description lines
+        # Example: "March 16, 2026 A child sits in..."
+        if date_prefix_pattern.match(l):
+            if any(noun in lower for noun in scene_nouns) and any(verb in lower for verb in scene_verbs):
+                continue
+
+        # 3. Scene-description lines even without explicit caption markers
+        if any(noun in lower for noun in scene_nouns) and any(verb in lower for verb in scene_verbs):
+            if len(l) < 220:
+                continue
+
+        # 4. Very short descriptive lines that often come from captions
+        if len(l) < 80 and any(noun in lower for noun in scene_nouns):
+            continue
+
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines)
