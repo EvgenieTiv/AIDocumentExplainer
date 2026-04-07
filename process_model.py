@@ -246,6 +246,93 @@ def clean_llm_json_response(raw_text: str) -> str:
 
     return cleaned
 
+def build_instruction_prompt(document_text: str):
+    system_prompt = """
+You are an expert instruction and how-to document explainer.
+
+Your task is to extract ONLY the essential actionable information from an instruction document.
+
+Return ONLY valid JSON.
+Do not use markdown.
+Do not include any text outside JSON.
+
+Use exactly this schema:
+{
+  "title": "string",
+  "document_type": "instruction",
+  "goal": "string",
+  "summary": "string",
+  "prerequisites": ["string"],
+  "main_steps": ["string"],
+  "warnings_or_common_mistakes": ["string"],
+  "expected_result": "string",
+  "simplified_explanation": "string",
+  "confidence": "high | medium | low"
+}
+
+Rules:
+
+CORE PRINCIPLE:
+- Focus on ACTIONABLE steps, not explanation
+- Remove all unnecessary text, repetition, and background information
+
+GOAL:
+- One short sentence describing what the user will achieve
+
+SUMMARY:
+- Short, practical summary (not academic, not descriptive)
+
+PREREQUISITES:
+- Only include real requirements (tools, setup, permissions)
+- If none are clear → return []
+
+MAIN STEPS (CRITICAL):
+- Extract ONLY essential steps needed to complete the task
+- 3 to 10 steps
+- Each step must be short and action-oriented
+- Do NOT include explanations inside steps
+- Do NOT include optional or decorative steps
+- Do NOT copy text — rewrite clearly and concisely
+
+WARNINGS:
+- Include common mistakes, risks, or important notes
+- If none → return []
+
+EXPECTED RESULT:
+- What the user should have at the end
+- If unclear → "Not clearly stated"
+
+SIMPLIFIED:
+- Explain the process in very simple terms
+
+CONFIDENCE:
+- "high" → clear steps and structure
+- "medium" → some steps inferred
+- "low" → unclear or messy instruction
+
+STRICT FILTERING:
+- Do NOT include:
+  - background explanations
+  - marketing text
+  - long descriptions
+  - repeated information
+
+- Prefer SHORT, CLEAN, PRACTICAL output
+
+- return only valid JSON
+""".strip()
+
+    user_prompt = f"""
+Analyze the following instruction document and return the JSON.
+
+DOCUMENT:
+{document_text}
+""".strip()
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
 def summarize_document_to_json(document_mode: str, document_text: str) -> dict:
     if document_mode == "research":
@@ -254,6 +341,9 @@ def summarize_document_to_json(document_mode: str, document_text: str) -> dict:
     elif document_mode == "news_article":
         messages = build_news_prompt(document_text)
         max_new_tokens = 1800
+    elif document_mode == "instruction":
+        messages = build_instruction_prompt(document_text)
+        max_new_tokens = 1500
     else:
         raise ValueError(f"Unsupported document type: {document_mode}")
 
@@ -376,6 +466,47 @@ def print_news_summary(result: dict):
 
     print("\n📊 Confidence:", result.get("confidence"))
 
+def print_instruction_summary(result: dict):
+    print("🛠 Title:", result.get("title"))
+    print("📄 Document type:", result.get("document_type"))
+
+    print("\n🎯 Goal:\n")
+    print(result.get("goal"))
+
+    print("\n🧾 Summary:\n")
+    print(result.get("summary"))
+
+    print("\n📦 Prerequisites:")
+    prerequisites = result.get("prerequisites", [])
+    if prerequisites:
+        for item in prerequisites:
+            print("-", item)
+    else:
+        print("- None identified")
+
+    print("\n🪜 Main steps:")
+    main_steps = result.get("main_steps", [])
+    if main_steps:
+        for idx, item in enumerate(main_steps, start=1):
+            print(f"{idx}. {item}")
+    else:
+        print("- None identified")
+
+    print("\n⚠️ Warnings or common mistakes:")
+    warnings = result.get("warnings_or_common_mistakes", [])
+    if warnings:
+        for item in warnings:
+            print("-", item)
+    else:
+        print("- None identified")
+
+    print("\n✅ Expected result:\n")
+    print(result.get("expected_result"))
+
+    print("\n🧠 Simplified explanation:\n")
+    print(result.get("simplified_explanation"))
+
+    print("\n📊 Confidence:", result.get("confidence"))
 
 def print_summary(result: dict):
     document_type = (result.get("document_type") or "").lower()
@@ -384,6 +515,8 @@ def print_summary(result: dict):
         print_research_summary(result)
     elif document_type == "news article":
         print_news_summary(result)
+    elif document_type == "instruction":
+        print_instruction_summary(result)
     else:
         print("📄 Document type:", result.get("document_type"))
         print("\n🧾 Raw result:\n")
