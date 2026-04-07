@@ -1,6 +1,0 @@
-Тип	Где используется
-research	
-news
-instruction
-business	
-general	всё остальное

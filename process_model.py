@@ -238,6 +238,92 @@ DOCUMENT:
         {"role": "user", "content": user_prompt},
     ]
 
+def build_insight_prompt(document_text: str):
+    system_prompt = """
+You are an expert document insight explainer.
+
+Analyze the document as a business, market, industry, strategy, or practical analysis document.
+
+Return ONLY valid JSON.
+Do not use markdown.
+Do not include any text outside JSON.
+
+Use exactly this schema:
+{
+  "title": "string",
+  "document_type": "insight",
+  "main_topic": "string",
+  "summary": "string",
+  "key_insights": ["string", "string", "string"],
+  "important_patterns_or_trends": ["string", "string"],
+  "notable_facts": ["string", "string"],
+  "limitations_or_uncertainties": ["string", "string"],
+  "simplified_explanation": "string",
+  "confidence": "high | medium | low"
+}
+
+Rules:
+
+CORE GOAL:
+- Extract the main meaning, insights, and patterns from the document
+- Focus on what the document suggests, highlights, or reveals
+- Do NOT give advice, recommendations, next steps, or actions
+
+GENERAL:
+- title: infer the document title if possible; if unclear, provide a short descriptive title
+- document_type: always use "insight"
+- main_topic: short phrase describing the main subject
+- summary: concise but informative paragraph focused on the core message of the document
+
+KEY INSIGHTS:
+- key_insights: 3 to 7 short insights drawn directly from the document
+- These should describe important conclusions, observations, or takeaways
+- Do NOT turn them into advice
+
+PATTERNS / TRENDS:
+- important_patterns_or_trends: 0 to 5 short items describing recurring patterns, trends, shifts, or relationships emphasized in the document
+- If none are clear, return []
+
+NOTABLE FACTS:
+- notable_facts: 0 to 5 short factual points, numbers, findings, or concrete observations that are especially important
+- If none are clear, return []
+
+LIMITATIONS / UNCERTAINTIES:
+- limitations_or_uncertainties: 0 to 5 short points describing uncertainty, ambiguity, limitations, incomplete evidence, or open questions mentioned or strongly implied by the document
+- If none are clear, return []
+
+SIMPLIFICATION:
+- simplified_explanation: explain the document in plain language
+
+SAFETY / BOUNDARIES:
+- Do NOT give business advice
+- Do NOT tell the reader what they should do
+- Do NOT invent hidden intent or unsupported conclusions
+- Stay grounded in the document only
+
+CONFIDENCE:
+- "high" if the document’s main ideas and takeaways are clear
+- "medium" if some insights require light interpretation
+- "low" if the document is unclear, noisy, or incomplete
+
+FALLBACK:
+- If something is unclear, prefer [] instead of guessing
+
+- return only valid JSON
+""".strip()
+
+    user_prompt = f"""
+Analyze the following document and return the JSON.
+
+DOCUMENT:
+{document_text}
+""".strip()
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
 def clean_llm_json_response(raw_text: str) -> str:
     cleaned = raw_text.strip()
 
@@ -334,6 +420,82 @@ DOCUMENT:
         {"role": "user", "content": user_prompt},
     ]
 
+def build_summary_prompt(document_text: str):
+    system_prompt = """
+You are a neutral document summarizer.
+
+Your task is to summarize the document clearly and accurately without adding interpretation.
+
+Return ONLY valid JSON.
+Do not use markdown.
+Do not include any text outside JSON.
+
+Use exactly this schema:
+{
+  "title": "string",
+  "document_type": "summary",
+  "main_subject": "string",
+  "summary": "string",
+  "key_points": ["string", "string"],
+  "simplified_explanation": "string",
+  "confidence": "high | medium | low"
+}
+
+Rules:
+
+CORE PRINCIPLE:
+- Be neutral and factual
+- Do NOT analyze, interpret, or give insights
+- Do NOT give advice or recommendations
+
+TITLE:
+- Infer the document title if possible
+
+MAIN SUBJECT:
+- Short phrase describing what the document is about
+
+SUMMARY:
+- Concise and accurate description of the document
+- Focus only on what is explicitly stated
+
+KEY POINTS:
+- 3 to 7 short factual points
+- Do NOT include interpretation
+- Do NOT include conclusions not clearly stated
+
+SIMPLIFIED:
+- Explain the document in plain language
+
+STRICT LIMITS:
+- Do NOT:
+  - infer hidden meaning
+  - extract insights
+  - suggest actions
+  - generalize beyond the text
+
+CONFIDENCE:
+- "high" → clear and structured document
+- "medium" → some ambiguity
+- "low" → unclear or noisy document
+
+FALLBACK:
+- If something is unclear, prefer simple and safe output
+
+- return only valid JSON
+""".strip()
+
+    user_prompt = f"""
+Summarize the following document.
+
+DOCUMENT:
+{document_text}
+""".strip()
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
 def summarize_document_to_json(document_mode: str, document_text: str) -> dict:
     if document_mode == "research":
         messages = build_research_prompt(document_text)
@@ -344,6 +506,12 @@ def summarize_document_to_json(document_mode: str, document_text: str) -> dict:
     elif document_mode == "instruction":
         messages = build_instruction_prompt(document_text)
         max_new_tokens = 1500
+    elif document_mode == "insight":
+        messages = build_insight_prompt(document_text)
+        max_new_tokens = 1800   
+    elif document_mode == "summary":
+        messages = build_summary_prompt(document_text)
+        max_new_tokens = 1200     
     else:
         raise ValueError(f"Unsupported document type: {document_mode}")
 
@@ -508,6 +676,68 @@ def print_instruction_summary(result: dict):
 
     print("\n📊 Confidence:", result.get("confidence"))
 
+def print_insight_summary(result: dict):
+    print("💡 Title:", result.get("title"))
+    print("📄 Document type:", result.get("document_type"))
+    print("🏷 Main topic:", result.get("main_topic"))
+
+    print("\n🧾 Summary:\n")
+    print(result.get("summary"))
+
+    print("\n🔍 Key insights:")
+    key_insights = result.get("key_insights", [])
+    if key_insights:
+        for item in key_insights:
+            print("-", item)
+    else:
+        print("- None found")
+
+    print("\n📈 Important patterns or trends:")
+    patterns = result.get("important_patterns_or_trends", [])
+    if patterns:
+        for item in patterns:
+            print("-", item)
+    else:
+        print("- None identified")
+
+    print("\n📌 Notable facts:")
+    facts = result.get("notable_facts", [])
+    if facts:
+        for item in facts:
+            print("-", item)
+    else:
+        print("- None identified")
+
+    print("\n⚠️ Limitations or uncertainties:")
+    limitations = result.get("limitations_or_uncertainties", [])
+    if limitations:
+        for item in limitations:
+            print("-", item)
+    else:
+        print("- None identified")
+
+    print("\n🧠 Simplified explanation:\n")
+    print(result.get("simplified_explanation"))
+
+    print("\n📊 Confidence:", result.get("confidence"))
+
+def print_summary_mode(result: dict):
+    print("📄 Title:", result.get("title"))
+    print("📄 Document type:", result.get("document_type"))
+    print("🏷 Main subject:", result.get("main_subject"))
+
+    print("\n🧾 Summary:\n")
+    print(result.get("summary"))
+
+    print("\n📌 Key points:")
+    for item in result.get("key_points", []):
+        print("-", item)
+
+    print("\n🧠 Simplified explanation:\n")
+    print(result.get("simplified_explanation"))
+
+    print("\n📊 Confidence:", result.get("confidence"))
+
 def print_summary(result: dict):
     document_type = (result.get("document_type") or "").lower()
 
@@ -517,6 +747,10 @@ def print_summary(result: dict):
         print_news_summary(result)
     elif document_type == "instruction":
         print_instruction_summary(result)
+    elif document_type == "insight":
+        print_insight_summary(result)
+    elif document_type == "summary":
+        print_summary_mode(result)
     else:
         print("📄 Document type:", result.get("document_type"))
         print("\n🧾 Raw result:\n")
