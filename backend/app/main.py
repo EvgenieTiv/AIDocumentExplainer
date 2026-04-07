@@ -9,9 +9,11 @@ app = FastAPI(title="PDF Document Explainer API")
 # Backend: python -m uvicorn app.main:app --reload
 # Frontend: npm run dev
 
+# ✅ Добавили Vercel домен
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://ai-document-explainer.vercel.app",
 ]
 
 

@@ -1,5 +1,7 @@
 /backend/venv311
 /backend/venv314
 /Data/
+/frontend/.env
+.gitignore
 
 
