@@ -1,0 +1,6 @@
+Тип	Где используется
+research	учеба / data science
+business	работа / аналитика
+contract	юр. документы
+policy	корпоративка
+general	всё остальное
