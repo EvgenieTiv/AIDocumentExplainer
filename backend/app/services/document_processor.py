@@ -1,6 +1,6 @@
 import json
 
-from llm_client import llm_call
+from app.services.llm_service import llm_call
 
 
 def build_research_prompt(document_text: str):
