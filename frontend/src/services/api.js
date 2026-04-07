@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export async function analyzeDocument(documentMode, documentText) {
   const response = await fetch(`${API_BASE_URL}/analyze`, {
@@ -19,7 +19,7 @@ export async function analyzeDocument(documentMode, documentText) {
       const errorData = await response.json();
       errorMessage = errorData.detail || errorMessage;
     } catch {
-      // keep default message
+      // ignore
     }
 
     throw new Error(errorMessage);
